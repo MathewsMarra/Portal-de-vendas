@@ -115,7 +115,10 @@ define([
 
         service.pd4000itemfields = function(params, element){
 		   self.oElement = document.getElementById("itemcontroller_item[qt-un-fat]");
-           self.order2Controller = params.itemController;						
+           self.order2Controller = params.itemController;	
+		   
+		   params.converteCaixaUnidade = self.converteCaixaUnidade;
+    		params.converteUnidadeCaixa = self.converteUnidadeCaixa;
 
 			$timeout(function(){
 				inserirCampoQtCaixas(params);
@@ -310,7 +313,7 @@ define([
 							// item.valunifin = dados.valunifin;
 
 							item.valfintot = item['vl-tot-it'];
-							item.valtotliq = item['qt-un-fat'] * item['vl-preori-un-fat'];
+							item.valtotliq = item['qt-un-fat'] * item['vl-preuni'];
 							item.valunifin = item['vl-tot-it'] / item['qt-un-fat'];
 
 							item.peripi    = dados.peripi;
@@ -356,7 +359,7 @@ define([
 						// item.valfintot = dados.valfintot;
 						// item.valunifin = dados.valunifin;
 						item.valfintot = item['vl-tot-it'];
-						item.valtotliq = item['qt-un-fat'] * item['vl-preori-un-fat'];
+						item.valtotliq = item['qt-un-fat'] * item['vl-preuni'];
 						item.valunifin = item['vl-tot-it'] / item['qt-un-fat'];
 
 						item.peripi    = dados.peripi;
@@ -615,6 +618,19 @@ define([
 					html = '<td style="text-align: right;" class role="gridcell" ><span>' + data['qtCaixas'] + '</span></td>';
 					compiledHTML = customService.compileHTML(params, html)
 					collectionRows[index].insertBefore(compiledHTML[0], collectionRows[index].cells[3]); 
+					
+					//inicio
+					//html = '<td style="text-align: right;" class role="gridcell" ><span>' + Number(data['valunifin']).toFixed(2) + '</span></td>';
+
+					html = '<td style="text-align: right;" class role="gridcell"><span>' +
+						(data['vl-preori'] !== data['vl-preuni']
+								? '<s>' + Number(data['vl-preori']).toFixed(2) + '</s> ' + Number(data['vl-preuni']).toFixed(2)
+								: Number(data['vl-preuni']).toFixed(2)
+						) +
+						'</span></td>';
+					compiledHTML = customService.compileHTML(params, html)
+					collectionRows[index].insertBefore(compiledHTML[0], collectionRows[index].cells[5]); 
+					//fim
 
 					html = '<td style="text-align: right;" class role="gridcell" ><span>' + Number(data['valunifin']).toFixed(2) + '</span></td>';
 					compiledHTML = customService.compileHTML(params, html)
@@ -705,7 +721,7 @@ define([
 							class="ng-pristine ng-untouched ng-valid ng-scope col-xs-12 col-md-6" 
 							id="itemcontroller_qtcaixas" 
 							disabled="disabled" 
-							onfocusout="converteCaixaUnidade()" >
+							ng-change="converteCaixaUnidade()" >
 
 						</field>`;									
 
@@ -718,8 +734,27 @@ define([
 
 				oFiQtCaixas = oQtUnFat.parentNode.insertBefore(_compiledHTML[0],oQtUnFat.nextSibling);
 
-				params.itemController.item['qtCaixas'] =  params.itemController.item['qt-un-fat'] / qtNaCaixa;
+				//params.itemController.item['qtCaixas'] =  params.itemController.item['qt-un-fat'] / qtNaCaixa;
 			}
+
+			wsOrder2.getQtNaCaixaUN({
+				codEstabel: params.itemController.order['cod-estabel'],
+				itCodigo: params.itemController.item['it-codigo']
+			}, function(result) {
+
+				if (result && result['qtde-na-caixa']) {
+					$timeout(function () {
+
+						let qtNaCaixa = result['qtde-na-caixa'];
+
+						params.itemController.item.qtNaCaixa = qtNaCaixa;
+
+						params.itemController.qtCaixas =
+    						params.itemController.item['qt-un-fat'] / qtNaCaixa;
+
+					});
+				}
+			});
 		};
 			
         function salvarPedido()
