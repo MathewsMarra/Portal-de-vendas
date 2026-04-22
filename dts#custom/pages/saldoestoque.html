@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-br">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Consulta Saldo Item</title>
+        <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css">
+    </head>
+    <body>
+        <div class="container col-12 col-md-6">
+            <h1>Saldo Item</h1>
+            <form action="">
+                <div class="form-group">
+                    <div class="input-group mb-3">
+                        <input type="text" id="coditem" class="form-control" placeholder="Codigo do Item" aria-label="Codigo do Item" aria-describedby="basic-addon2">
+                        <div class="input-group-append">
+                          <button class="btn btn-outline-secondary" id="buscar" type="button">Buscar</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <table id="lista" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Cod. Item</th>
+                        <th>Cod. Estab</th>
+                        <th>Cod. Dep</th>
+                        <th>Cod. Localiz</th>
+                        <th>Cod. Refer</th>
+                        <th>Dt Valid Lote</th>
+                        <th>Lote/Serie</th>
+                        <th>Qtd Atual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+        <script src="lib/jquery/jquery-3.4.1.min.js"></script>
+        <script src="lib/jquery-mask-plugin/src/jquery.mask.js"></script>
+
+        <script src="lib/bootstrap/bootstrap.min.js"></script>
+
+        <script src="js/api/connectorHTTP.js"></script>
+        <script src="js/api/auth.js"></script>
+        <script src="js/api/rest.js"></script>
+
+        <script src="js/controllers/saldo.js"></script>
+        <script src="js/controllers/modal.js"></script>
+        
+        <script src="js/models/saldo.js"></script>
+        <script src="js/utils/utils.js"></script>
+        
+    </body>     
+</html>
+
+
+<div>
+    
+</div>
+<html></html>
+<!-- http://10.33.222.9:8180/dts/custom/teste.html -->

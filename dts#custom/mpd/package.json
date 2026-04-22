@@ -1,0 +1,14 @@
+{
+  "name": "mpd",
+  "version": "1.0.0",
+  "description": "Customização Totvs Datasul",
+  "main": "order.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Vinicius Russo",
+  "license": "ISC",
+  "dependencies": {
+    "totvs-custom": "^0.1.2"
+  }
+}

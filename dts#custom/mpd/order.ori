@@ -1,0 +1,484 @@
+function imprimir(){
+	let pedido = window.location.href.split('/order/')[1];
+	pedido = pedido.split('?')[0];
+	let url = "http://"+window.location.host+"/dts/datasul-rest/resources/prg/rest-api/v1/esppedimprime/download?nr-pedido="+pedido;
+	fetch(url).then(function(response) {
+		  return response.json();
+	}).then(function(parsedJson) {
+		if(parsedJson.items[0].Retorno)
+		{
+			let a = document.createElement("a");
+			a.href = "data:"+parsedJson.items[0]["Content-type"]+";base64," + parsedJson.items[0].Arquivo;
+			a.download = parsedJson.items[0].Nome;
+			a.click();
+		}
+	})
+}
+
+function EnviaEmail(e)
+{
+	e.srcElement.innerHTML = "Enviando E-mail";
+	$(e.srcElement).attr("disabled","")
+	let pedido = window.location.href.split('/order/')[1];
+	pedido = pedido.split('?')[0];
+	let url = "http://"+window.location.host+"/dts/datasul-rest/resources/prg/rest-api/v1/esppedenviaemail/enviaEmail?nr-pedido="+pedido;
+	fetch(url).then(function(response) {
+		  return response.json();
+		}).then(function(parsedJson) {
+			e.srcElement.innerHTML = "E-mail enviado";
+		})
+	//
+}
+
+function AdicionaOrdemDeCompra(e) {
+	let numerooc = $("#txtOrdemCompra").val();
+	let pedido = window.location.href.split('/order/')[1];
+	pedido = pedido.split('?')[0];
+	let url = "http://"+window.location.host+"/dts/datasul-rest/resources/prg/rest-api/v1/esppedordemcompra/ordemcompra?nr-pedido="+pedido+"&numero-oc="+numerooc;
+	fetch(url).then(function(response) {
+		  return response.json();
+	}).then(function(parsedJson) {
+		if(parsedJson.items[0].Retorno)
+		{
+			alert("Alterado");
+		}
+	})
+}
+
+function AdicionaCondicaoPagamento(e) {
+	let condicao = $("#txtCondicaoPagamento").val();
+	let pedido = window.location.href.split('/order/')[1];
+	pedido = pedido.split('?')[0];
+	let url = "http://"+window.location.host+"/dts/datasul-rest/resources/prg/rest-api/v1/esppedcondicao/condicao?nr-pedido="+pedido+"&condicao="+condicao;
+	fetch(url).then(function(response) {
+		  return response.json();
+	}).then(function(parsedJson) {
+		if(parsedJson.items[0].Retorno)
+		{
+			alert("Alterado");
+		}
+	})
+}
+
+
+function converteCaixaUnidade(e){
+	let qtdecaixa = e.srcElement.getAttribute('qtdcaixa');
+	let valor = e.srcElement.value.split(",")[0];
+	let input = $(e.srcElement);
+	let td = input.closest('tr').querySelectorAll('td')[5];
+	let input2 = td.querySelectorAll('input')[0];
+	let total = qtdecaixa*valor;
+	$(input2).val(total);
+	$(input2).blur();
+	$(input2).blur();
+	
+	calculaTotal(e.srcElement);
+}
+function converteUnidadeCaixa(e){
+	let qtdeunidade = e.srcElement.value.split(",")[0];
+	let input = $(e.srcElement);
+	let td = input.closest('tr').querySelectorAll('td')[4];
+	let input2 = td.querySelectorAll('input')[0];
+	let qtdecaixa = input2.getAttribute('qtdcaixa');
+	let total;
+	if (qtdeunidade=='0'||qtdeunidade==''){
+		total=0;
+	}else{
+		total = Math.round(((qtdeunidade/qtdecaixa) + Number.EPSILON) * 10000) / 10000
+	}
+	$(input2).val(total);
+	
+	calculaTotal(td);
+}
+
+function calculaTotal(pTd){
+	let input = $(pTd).closest('tr').querySelectorAll('td')[7].querySelectorAll('input')[0];
+	let qtde = $($(pTd).closest('tr').querySelectorAll('td')[5].querySelectorAll('input')[0]).val().split(",")[0];
+	let valor = $($(pTd).closest('tr').querySelectorAll('td')[3].querySelectorAll('input')[0]).val();
+	let valorCalculado = Math.round(((valor*qtde) + Number.EPSILON) * 10000) / 10000
+	$(input).val(valorCalculado);
+}
+
+function limpaQtde(e){
+	let valor = e.srcElement.value;
+	let input = $(e.srcElement);
+	let td = input.closest('tr').querySelectorAll('td')[4];
+	let input2 = td.querySelectorAll('input')[0];
+	$(input2).val(0);
+	calculaTotal(td);
+}
+
+function formatardecimal(e){
+	let input = e.srcElement;
+	let valor = $(input).val();
+	let valorformatado = Math.round((valor + Number.EPSILON) * 10000) / 10000
+	//$(input).val(valorformatado);
+}
+
+
+function adicionaBotaoImpressora(){
+	let linkImpressora = $('<a class="btn btn-default clickable" role="button"><span class="glyphicon glyphicon-print"></span><span class="hidden-xs ng-binding">&nbsp;&nbsp;Imprimir</span></a>').get(0);
+	linkImpressora.setAttribute("onclick","imprimir()");
+	$("div.operations.page-detail-actions").querySelectorAll("a")[0].before(linkImpressora);
+}
+
+function adicionaBotaoEmail(){
+	let linkImpressora = $('<a class="btn btn-default clickable" role="button"><span class="glyphicon glyphicon-envelope"></span><span class="hidden-xs ng-binding">&nbsp;&nbsp;Enviar por E-mail</span></a>').get(0);
+	linkImpressora.setAttribute("onclick","EnviaEmail(event)");
+	$("div.operations.page-detail-actions").querySelectorAll("a")[0].before(linkImpressora);
+}
+
+function adicionaBotaoOrdemDeCompra(){
+	let lblOrdemCompra = $('<div disabled style="cursor:default;" class="btn btn-default ng-binding">OC: </div>').get(0);
+	let txtOrdemCompra = $('<input class="btn btn-default ng-binding" style="cursor:text;" type="text" id="txtOrdemCompra"></input>').get(0);
+	let btnOrdemCompra = $('<label class="btn btn-default ng-binding"><span class="glyphicon glyphicon-pencil"></span>&nbsp; Replicar OC</label>').get(0);
+	btnOrdemCompra.setAttribute("onclick","AdicionaOrdemDeCompra(event)");
+	$("div.btn-group.pull-right")[3].querySelectorAll("label")[0].before(btnOrdemCompra);
+	$("div.btn-group.pull-right")[3].querySelectorAll("label")[0].before(txtOrdemCompra);
+	$("div.btn-group.pull-right")[3].querySelectorAll("input")[0].before(lblOrdemCompra);
+}
+
+function adicionaBotaoCondicaoPagamento(){
+	let lblCondicaoPagamento = $('<div disabled style="cursor:default;" class="btn btn-default ng-binding">Cond.Preco: </div>').get(0);
+	//let txtCondicaoPagamento = $('<input class="btn btn-default ng-binding" style="cursor:text;" type="text" id="txtCondicaoPagamento"></input>').get(0);
+	let txtCondicaoPagamento = $('<select class="btn btn-default ng-binding" style="cursor:default;" name="select" id="txtCondicaoPagamento"><option default value=""></option><option value="1">A VISTA</option><option value="3">21 DD</option></option><option value="4">30 DD</option><option value="5">30/60/90 DD</option><option value="8">30/45/60 DD</option><option value="10">28/35/42 DD</option><option value="20">45 DD</option></select>').get(0);
+	let btnCondicaoPagamento = $('<label class="btn btn-default ng-binding"><span class="glyphicon glyphicon-pencil"></span>&nbsp; Alterar</label>').get(0);
+	
+	
+	
+	
+	btnCondicaoPagamento.setAttribute("onclick","AdicionaCondicaoPagamento(event)");
+	$("div.btn-group.pull-right")[3].querySelectorAll("div")[0].before(btnCondicaoPagamento);
+	$("div.btn-group.pull-right")[3].querySelectorAll("label")[0].before(txtCondicaoPagamento);
+	$("div.btn-group.pull-right")[3].querySelectorAll("select")[0].before(lblCondicaoPagamento);
+}
+
+function removeBotaoImpressora(){
+	$($("div.operations.page-detail-actions").querySelectorAll("a")[5]).attr("style","display:none;");;
+}
+
+
+define(['index', '/dts/custom/mpd/node_modules/totvs-custom/index.js'], function (index, custom) {
+	function orderCustomService(customService) {
+		service = {
+			customListItem: function (params, element) {
+				if ($("thead tr th").get(2).innerHTML!="Preço Base"){
+
+					//altera titulo
+					$("thead tr th").get(2).innerHTML = "Preço Base";
+					
+					//adiciona coluna Preço Tabela
+					let newThPrecoTabela = document.createElement("th");
+					newThPrecoTabela.innerHTML = "Preço Tabela";
+					$("thead tr th").get(2).after(newThPrecoTabela);
+					
+					//adiciona coluna Quantidade Cx.
+					let newThQuantidadeCaixa = document.createElement("th");
+					newThQuantidadeCaixa.innerHTML = "Quantidade Cx.";
+					$("thead tr th").get(3).after(newThQuantidadeCaixa);
+					
+					//adiciona coluna Valor Total
+					let newThValorTotal = document.createElement("th");
+					newThValorTotal.innerHTML = "Valor Total";
+					$("thead tr th").get(6).after(newThValorTotal);
+					
+				}
+				
+				let td = element.querySelectorAll('td');
+				
+				let pedido = window.location.href.split('/order/')[1].split('/')[0];
+				pedido = pedido.split('?')[0];
+				
+				//adiciona valor coluna Preco Tabela
+				let newTdPrecoTabela = document.createElement("td");
+				td[2].after(newTdPrecoTabela);
+				let urlPrecoTabela = "http://"+window.location.host+'/dts/datasul-rest/resources/prg/rest-api/v1/espconvunid/parametros?it-codigo='+params.item['it-codigo']+'&qtde-caixa=1&nr-pedido='+pedido;
+				httpServicePreco('GET',urlPrecoTabela,newTdPrecoTabela);
+				
+				
+				//adiciona valor coluna Quantidade Caixa
+				td = element.querySelectorAll('td');
+				let newTdQuantidadeCaixa = document.createElement("td");
+				td[3].after(newTdQuantidadeCaixa);
+				let urlQuantidadeCaixa = "http://"+window.location.host+'/dts/datasul-rest/resources/prg/rest-api/v1/espconvunid/parametros?it-codigo='+params.item['it-codigo']+'&un=caixa';
+				httpServiceCaixa('GET',urlQuantidadeCaixa,newTdQuantidadeCaixa);
+				
+				//adiciona função qtde original
+				td = element.querySelectorAll('td');
+				$(td[5].querySelectorAll('input')[0]).attr("onkeyup","converteUnidadeCaixa(event)");
+				$(td[5].querySelectorAll('input')[0]).attr("disabled","")
+				
+				//adiciona limpeza de quantidade quando item adicionado no carrinho
+				$(td[5].querySelectorAll('a')[0]).attr("onclick","limpaQtde(event)");
+				
+				
+				//adiciona valor coluna Quantidade Caixa
+				td = element.querySelectorAll('td');
+				let newTdValorTotal = document.createElement("td");
+				td[6].after(newTdValorTotal);
+				let input = document.createElement("input");
+				input.setAttribute("disabled","");
+				input.setAttribute("data-v-max","9999999.9999");
+				input.setAttribute("class","form-control ng-pristine ng-valid ng-touched");
+				$(input).val('0'); 
+				$(newTdValorTotal).append(input);
+			},
+			OrderItemGridList: function (params, element) {
+			
+				if ($("thead tr th").get(3).innerHTML!="Qtde Por CX"){
+					adicionaBotaoImpressora();
+					adicionaBotaoEmail();
+					adicionaBotaoOrdemDeCompra();
+					adicionaBotaoCondicaoPagamento();
+					removeBotaoImpressora();
+					
+					//Esconder header tabela
+					$($("thead tr th").get(1)).attr("style","display:none");
+					$($("thead tr th").get(3)).attr("style","display:none");
+					$($("thead tr th").get(4)).attr("style","display:none");
+					$($("thead tr th").get(5)).attr("style","display:none");
+					$($("thead tr th").get(6)).attr("style","display:none");
+					$($("thead tr th").get(7)).attr("style","display:none");
+					$($("thead tr th").get(8)).attr("style","display:none");
+					//$($("thead tr th").get(9)).attr("style","display:none");
+					$($("thead tr th").get(10)).attr("style","display:none");
+					$($("thead tr th").get(11)).attr("style","display:none");
+					$($("thead tr th").get(12)).attr("style","display:none");
+					$($("thead tr th").get(13)).attr("style","display:none");
+					$($("thead tr th").get(14)).attr("style","display:none");
+					//Fim Esconder header tabela
+					
+					/*
+					Qtde Por CX
+					Caixas		
+					Valor Tabela	
+					Valor Pedido	
+					Valor Total	
+					Valor U Final
+					Valor Final Total
+					PRPI	
+					Valor IPI	
+					Valor FCP	
+					Valor ICMS ST
+					*/
+					
+					//adiciona coluna Qtde Por CX
+					let newThQtdePorCX = document.createElement("th");
+					newThQtdePorCX.innerHTML = "Qtde Por CX";
+					$("thead tr th").get(2).after(newThQtdePorCX);
+					//fim adiciona coluna Qtde Por CX
+					
+					//adiciona coluna Caixas
+					let newThCaixas = document.createElement("th");
+					newThCaixas.innerHTML = "Caixas";
+					$("thead tr th").get(3).after(newThCaixas);
+					//fim adiciona coluna Caixas
+					
+					//altera coluna Tubos
+					let lbl = $("thead tr th").get(11);
+					lbl.innerHTML ="Tubos(UN)";
+					//altera coluna Tubos
+					
+					//adiciona coluna Valor Tabela
+					let newThValorTabela = document.createElement("th");
+					newThValorTabela.innerHTML = "Valor Tabela";
+					$("thead tr th").get(14).after(newThValorTabela);
+					//fim adiciona coluna Valor Tabela
+					
+					//adiciona coluna Valor Pedido
+					let newThValorPedido = document.createElement("th");
+					newThValorPedido.innerHTML = "Valor Pedido";
+					$("thead tr th").get(15).after(newThValorPedido);
+					//fim adiciona coluna Valor Pedido
+					
+					//adiciona coluna Valor Total
+					let newThValorTotal = document.createElement("th");
+					newThValorTotal.innerHTML = "Valor Total";
+					$("thead tr th").get(16).after(newThValorTotal);
+					//fim adiciona coluna Valor Total
+					
+					//adiciona coluna Valor UN Final
+					let newThValorUNFinal = document.createElement("th");
+					$(newThValorUNFinal).attr("style","background-color: yellow; color: black;");
+					newThValorUNFinal.innerHTML = "Valor UN Final";
+					$("thead tr th").get(17).after(newThValorUNFinal);
+					//fim adiciona coluna Valor UN Final
+					
+					//adiciona coluna Valor Final Total
+					let newThValorFinalTotal = document.createElement("th");
+					newThValorFinalTotal.innerHTML = "Valor Final Total";
+					$("thead tr th").get(18).after(newThValorFinalTotal);
+					//fim adiciona coluna Valor Final Total
+					
+					//adiciona coluna PRPI
+					let newThPRPI = document.createElement("th");
+					newThPRPI.innerHTML = "% IPI";
+					$("thead tr th").get(19).after(newThPRPI);
+					//fim adiciona coluna PRPI
+					
+					//adiciona coluna Valor IPI
+					let newThValorIPI = document.createElement("th");
+					newThValorIPI.innerHTML = "Valor IPI";
+					$("thead tr th").get(20).after(newThValorIPI);
+					//fim adiciona coluna Valor IPI
+					
+					//adiciona coluna Valor FCP
+					let newThValorFCP = document.createElement("th");
+					newThValorFCP.innerHTML = "Valor FCP";
+					$("thead tr th").get(21).after(newThValorFCP);
+					//fim adiciona coluna Valor FCP
+					
+					//adiciona coluna Valor ICMS ST
+					let newThValorICMSST = document.createElement("th");
+					newThValorICMSST.innerHTML = "Valor ICMS ST";
+					$("thead tr th").get(22).after(newThValorICMSST);
+					//fim adiciona coluna Valor ICMS ST
+					
+				}
+				
+				let td = element.querySelectorAll('td');
+				
+				//Esconder Celula
+				$(td[1]).attr("style","display:none");
+				$(td[3]).attr("style","display:none");
+				$(td[4]).attr("style","display:none");
+				$(td[5]).attr("style","display:none");
+				$(td[6]).attr("style","display:none");
+				$(td[7]).attr("style","display:none");
+				$(td[8]).attr("style","display:none");
+				//$(td[9]).attr("style","display:none");
+				$(td[10]).attr("style","display:none");
+				$(td[11]).attr("style","display:none");
+				$(td[12]).attr("style","display:none");
+				$(td[13]).attr("style","display:none");
+				$(td[14]).attr("style","display:none");
+				//Fim Esconder Celula
+				
+				//adiciona celulas
+				let newTd = document.createElement("td");
+				newTd.setAttribute("style","min-width:120px");
+				let tdClone = newTd.cloneNode(true);
+				element.querySelectorAll('td')[2].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[3].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[16].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[17].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[18].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				$(tdClone).attr("style","background-color: yellow; color: black; min-width: 120px;");
+				element.querySelectorAll('td')[19].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[20].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[21].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[22].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[23].after(tdClone);
+				tdClone   = newTd.cloneNode(true);
+				element.querySelectorAll('td')[24].after(tdClone);
+				//fim adiciona celulas
+				
+				
+				//Chamada
+				let nrpedcli = params.item["nr-pedcli"];
+				let nomeabrev = params.item["nome-abrev"]; 
+				let nrsequencia = params.item["nr-sequencia"];
+				let itcodigo = params.item["it-codigo"];
+				let codrefer = params.item["cod-refer"];
+				let urlValorItem = "http://"+window.location.host+'/dts/datasul-rest/resources/prg/rest-api/v1/esppeditemtot/parametros?nr-pedcli='+nrpedcli+'&nome-abrev='+nomeabrev+'&nr-sequencia='+nrsequencia+'&it-codigo='+itcodigo+'&cod-refer='+codrefer;
+
+				td = element.querySelectorAll('td');
+				httpServiceValorItem('GET',urlValorItem,td);
+				//Fim Chamada
+				//adiciona valor coluna Valor Item
+				
+			}
+		},
+		angular.extend(service, customService);
+		return service;
+	}
+
+	function httpServiceValorItem(pTipo,pUrl,pTd) {
+		fetch(pUrl).then(function(response) {
+		  return response.json();
+		}).then(function(parsedJson) {
+			
+			pTd[3].innerHTML = parsedJson.items[0]['qtdeporcx'];
+			pTd[4].innerHTML = parsedJson.items[0]['caixas'];
+			pTd[17].innerHTML = parsedJson.items[0]['valtabpra'];
+			pTd[18].innerHTML = parsedJson.items[0]['valven'];
+			pTd[19].innerHTML = parsedJson.items[0]['valtot'];
+			pTd[20].innerHTML = parsedJson.items[0]['valunifin'];
+			pTd[21].innerHTML = parsedJson.items[0]['valfintot'];
+			pTd[22].innerHTML = parsedJson.items[0]['peripi'];
+			pTd[23].innerHTML = parsedJson.items[0]['valipi'];
+			pTd[24].innerHTML = parsedJson.items[0]['valfcp'];
+			pTd[25].innerHTML = parsedJson.items[0]['valimcsst'];
+			
+			/*
+			Qtde Por CX
+			Caixas	
+			Tubos (U)	
+			Valor Tabela	
+			Valor Pedido	
+			Valor Total	
+			Valor U Final
+			Valor Final Total
+			PRPI	
+			Valor IPI	
+			Valor FCP	
+			Valor ICMS ST
+			*/
+		})
+	}
+	
+	function httpServicePreco(pTipo,pUrl,pTd) {
+		fetch(pUrl).then(function(response) {
+		  return response.json();
+		}).then(function(parsedJson) {
+			let input = document.createElement("input");
+			input.setAttribute("disabled","");
+			input.setAttribute("precocalc",parsedJson.items[0]['preco-calc']);
+			input.setAttribute("data-v-max","9999999.9999");
+			input.setAttribute("onclick","this.setSelectionRange(0, this.value.length)");
+			input.setAttribute("class","form-control ng-pristine ng-valid ng-touched");
+			input.value = parsedJson.items[0]['preco-calc'];
+			pTd.append(input);
+			if(!parsedJson.items[0]['mostrar']){
+				$(pTd).parent('tr').attr("style","display:none;");
+			}
+		})
+	}
+	function httpServiceCaixa(pTipo,pUrl,pTd) {
+		fetch(pUrl).then(function(response) {
+		  return response.json();
+		}).then(function(parsedJson) {
+			let input = document.createElement("input");
+			input.setAttribute("oninput","converteCaixaUnidade(event)");
+			input.setAttribute("qtdcaixa",parsedJson.items[0]['qtde-na-caixa']);
+			input.setAttribute("data-v-max","9999999.9999");
+			input.setAttribute("onclick","this.setSelectionRange(0, this.value.length)");
+			input.setAttribute("class","form-control ng-pristine ng-valid ng-touched");
+			input.setAttribute("onfocusout","formatardecimal(event)");
+			pTd.append(input);
+			$(input).val(0);
+		})
+	}
+	
+	orderCustomService.$inject = ['customization.generic.Factory'];
+	index.register.factory('custom.dts.mpd.order', orderCustomService);
+});
+
+/*
+afterLoadOrder
+onEditOrderItem
+customOrderEdit
+customOrderItemEdit
+afterGetHeader
+
+*/
+
