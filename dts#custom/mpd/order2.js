@@ -974,6 +974,17 @@ define([
 								'ng-disabled="modalDescontoController.enviando" ' +
 								'ng-click="modalDescontoController.enviarComAcrescimo()">' +
 								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar com Acréscimo\'}}</button> ' +
+							// Nenhum desconto/acrescimo aplicavel (ex.: prazo medio em
+							// faixa de 0%, pedido acima de R$ 7.000 - sem acrescimo
+							// logistico) - sem este botao, o modal ficava sem nenhuma
+							// opcao de envio alem de Fechar. Reaproveita enviarSemDesconto
+							// (ja faz o piso de R$4.000 + registra a decisao, que aqui e'
+							// so' formalidade ja que nao ha ajuste a aplicar ou recusar).
+							'<button type="button" class="btn btn-enviar-sem-desconto" ' +
+								'ng-if="!modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual === 0" ' +
+								'ng-disabled="modalDescontoController.enviando" ' +
+								'ng-click="modalDescontoController.enviarSemDesconto()">' +
+								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar\'}}</button> ' +
 							'<button type="button" class="btn btn-enviar-sem-desconto" ' +
 								'ng-if="modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio" ' +
 								'ng-disabled="modalDescontoController.enviando" ' +
@@ -1074,7 +1085,14 @@ define([
 							return;
 						}
 
-						confirmarAcao('O pedido será enviado <span style="color:#337ab7;font-weight:bold;">sem desconto</span>. Deseja prosseguir?').then(function () {
+						// Sem ajuste algum aplicavel (totalPercentual === 0) nao ha
+						// nada a "recusar" - confirmacao neutra, mesmo texto usado em
+						// enviarComplementar, em vez de falar em "sem desconto".
+						var mensagemConfirmacao = self.totalPercentual === 0
+							? 'O pedido será enviado. Deseja prosseguir?'
+							: 'O pedido será enviado <span style="color:#337ab7;font-weight:bold;">sem desconto</span>. Deseja prosseguir?';
+
+						confirmarAcao(mensagemConfirmacao).then(function () {
 							self.enviando = true;
 
 							// Registra a decisao de nao aplicar o ajuste ANTES de liberar
