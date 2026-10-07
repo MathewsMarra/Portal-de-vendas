@@ -87,6 +87,20 @@ define([
 				}
 			},
 
+			// Registra a decisao de NAO aplicar o ajuste de preco avaliado
+			// (botao "Enviar sem Desconto") - nao libera o pedido, so' grava
+			// o historico para a validacao de liberacao em UPC_BODI159COM.p
+			// nao tratar essa liberacao como bypass.
+			'registerPricingDecision': {
+				method: 'POST',
+				isArray: false,
+				params: { orderId: '@orderId' },
+				url: '/api/rest-api/mpd/v1/apiOrderPricingDecision/:orderId',
+				transformResponse: function (data) {
+					return angular.fromJson(data);
+				}
+			},
+
 			'linkOrder': {
 				method: 'POST',
 				isArray: false,
@@ -1061,11 +1075,27 @@ define([
 						}
 
 						confirmarAcao('O pedido será enviado <span style="color:#337ab7;font-weight:bold;">sem desconto</span>. Deseja prosseguir?').then(function () {
-							$modalInstance.dismiss();
+							self.enviando = true;
 
-							if (params && params.controller && typeof params.controller.processOrder === 'function') {
-								params.controller.processOrder(params.controller.order && params.controller.order['log-cotacao']);
-							}
+							// Registra a decisao de nao aplicar o ajuste ANTES de liberar
+							// pelo fluxo padrao (processOrder) - sem isso, a validacao de
+							// liberacao em UPC_BODI159COM.p nao teria como distinguir esta
+							// decisao legitima de um pedido que nunca passou pela nossa
+							// avaliacao de preco, e bloquearia o completeOrder.
+							wsOrder2.registerPricingDecision({ orderId: orderId }, {}, function () {
+								self.enviando = false;
+								$modalInstance.dismiss();
+
+								if (params && params.controller && typeof params.controller.processOrder === 'function') {
+									params.controller.processOrder(params.controller.order && params.controller.order['log-cotacao']);
+								}
+							}, function (erro) {
+								self.enviando = false;
+								console.error('[order2] Erro ao registrar decisão de envio sem desconto.', erro);
+								var msg = (erro && erro.data && erro.data.ErrorDescription) ||
+									'Ocorreu um erro ao enviar o pedido. Tente novamente.';
+								alert(msg);
+							});
 						});
 					};
 
