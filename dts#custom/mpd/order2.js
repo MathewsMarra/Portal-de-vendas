@@ -121,6 +121,19 @@ define([
 				}
 			},
 
+			// Marca/desmarca o pedido como FOB (frete por conta do cliente -
+			// ped-venda.ind-tp-frete) - isenta o pedido do acrescimo logistico
+			// em pi-verifica-ajuste-preco-pedido (bompd.p).
+			'setOrderFob': {
+				method: 'POST',
+				isArray: false,
+				params: { orderId: '@orderId' },
+				url: '/api/rest-api/mpd/v1/apiOrderFob/:orderId',
+				transformResponse: function (data) {
+					return angular.fromJson(data);
+				}
+			},
+
 			'getQtNaCaixaUN': {
                 method: 'GET',
                 isArray: false,
@@ -165,7 +178,8 @@ define([
 						percentualAjuste: Number(result && result.percentualAjuste) || 0,
 						itens: (result && result.items) || [],
 						pedidoComplementar: !!(result && result.pedidoComplementar),
-						nrPedidoReferencia: Number(result && result.nrPedidoReferencia) || 0
+						nrPedidoReferencia: Number(result && result.nrPedidoReferencia) || 0,
+						fob: !!(result && result.fob)
 					};
 				}
 
@@ -517,19 +531,106 @@ define([
 		}
 
 		/**
-		 * Reconsulta additionalInfo e atualiza a coluna "Pedido
-		 * Complementar?" em seu lugar (sem recarregar a pagina), apos
-		 * vincular/desvincular com sucesso.
+		 * Exibe, sempre (mesma regra de visibilidade de exibirPedidoComplementar),
+		 * a coluna "Pedido FOB?" - frete por conta do cliente
+		 * (ped-venda.ind-tp-frete = 2), que isenta o pedido do acrescimo
+		 * logistico em pi-verifica-ajuste-preco-pedido (bompd.p). Mesma
+		 * estrutura/polling/compileHTML de exibirPedidoComplementar, so' que
+		 * sem modal - alterarPedidoFob faz o POST diretamente ao clicar,
+		 * mesmo padrao "zero friction" de removerVinculoPedido (reversivel,
+		 * o efeito no preco so' se materializa na proxima reavaliacao).
 		 */
-		function atualizarPedidoComplementar(orderId) {
+		function exibirPedidoFob(orderId, fob) {
+			var tentativas = 0;
+
+			function tentarExibir() {
+				tentativas++;
+
+				var $popover = $('div[popover-template*="orderValues.html"]').first();
+
+				if ($popover.length === 0) {
+					if (tentativas < 10) {
+						$timeout(tentarExibir, 500);
+					}
+					return;
+				}
+
+				var scope = angular.element($popover[0]).scope();
+				var controller = scope && scope.controller;
+
+				var textoValor = fob ? 'Sim' : 'Não';
+				var statusVisivel = statusPedidoVisivel(controller);
+
+				if (controller) {
+					controller.onClickMarcarFob = function () {
+						alterarPedidoFob(orderId, true);
+					};
+
+					controller.onClickDesmarcarFob = function () {
+						alterarPedidoFob(orderId, false);
+					};
+				}
+
+				var html =
+					'<div class="detail-field pedido-fob-badge" ' +
+						'data-badge-ordem="3" style="float:left;width:auto;white-space:nowrap;padding-left:4px;">' +
+						'<div class="field-label">Pedido FOB?</div>' +
+						'<div class="field-value" style="display:flex;align-items:center;">' +
+							'<span>' + textoValor + '</span>' +
+							'<a class="btn btn-xs clickable" role="button" style="margin-left:10px;background-color:#337ab7;border-color:#2e6da4;color:#fff;" ' +
+								'ng-if="' + (!statusVisivel && !fob ? 'true' : 'false') + '" ' +
+								'ng-click="controller.onClickMarcarFob()">Marcar como FOB</a>' +
+							'<a class="btn btn-xs clickable" role="button" style="margin-left:10px;background-color:#c0392b;border-color:#a93226;color:#fff;" ' +
+								'ng-if="' + (!statusVisivel && fob ? 'true' : 'false') + '" ' +
+								'ng-click="controller.onClickDesmarcarFob()">Desmarcar FOB</a>' +
+						'</div>' +
+					'</div>';
+
+				var elemento = controller
+					? customService.compileHTML({ controller: controller }, html)
+					: $(html);
+
+				var $alvo = $popover.closest('.detail-field');
+				if ($alvo.length === 0) $alvo = $popover;
+
+				inserirBadgeOrdenado($alvo, 'pedido-fob-badge', elemento);
+			}
+
+			$timeout(tentarExibir, 500);
+		}
+
+		function alterarPedidoFob(orderId, novoValor) {
+			wsOrder2.setOrderFob({ orderId: orderId }, { fob: novoValor }, function () {
+				atualizarAjustesPedido(orderId);
+			}, function (erro) {
+				console.error('[order2] Erro ao alterar modalidade de frete (FOB) do pedido.', erro);
+				alert('Ocorreu um erro ao atualizar o pedido. Tente novamente.');
+			});
+		}
+
+		/**
+		 * Reconsulta additionalInfo UMA vez e atualiza, em conjunto, a badge
+		 * de Acrescimo/Desconto, a coluna "Pedido Complementar?" e a coluna
+		 * "Pedido FOB?" (sem recarregar a pagina), apos qualquer acao que
+		 * mude o calculo do ajuste de preco (vincular/desvincular
+		 * complementar, marcar/desmarcar FOB). Antes desta consolidacao,
+		 * atualizarPedidoComplementar so' atualizava a propria badge,
+		 * deixando o percentual de Acrescimo/Desconto desatualizado na tela
+		 * ate' um refresh manual - FOB muda esse percentual diretamente,
+		 * entao essa inconsistencia passou a ser visivel o suficiente para
+		 * corrigir aqui para as tres badges de uma vez.
+		 */
+		function atualizarAjustesPedido(orderId) {
 			loadQtNaCaixaByOrder(orderId).then(function (resultado) {
+				exibirPercentualAjuste(resultado.percentualAjuste, resultado.itens);
 				exibirPedidoComplementar(orderId, resultado.pedidoComplementar, resultado.nrPedidoReferencia);
+				exibirPedidoFob(orderId, resultado.fob);
 			});
 		}
 
 		function removerVinculoPedido(orderId) {
 			wsOrder2.unlinkOrder({ orderId: orderId }, function () {
-				atualizarPedidoComplementar(orderId);
+				atualizarAjustesPedido(orderId);
 			}, function (erro) {
 				console.error('[order2] Erro ao remover vínculo de pedido complementar.', erro);
 				alert('Ocorreu um erro ao remover o vínculo. Tente novamente.');
@@ -585,7 +686,7 @@ define([
 							function () {
 								self.enviando = false;
 								$modalInstance.close('vinculado');
-								atualizarPedidoComplementar(orderId);
+								atualizarAjustesPedido(orderId);
 							},
 							function (erro) {
 								self.enviando = false;
@@ -1357,6 +1458,7 @@ define([
 
 						exibirPercentualAjuste(resultado.percentualAjuste, resultado.itens);
 						exibirPedidoComplementar(params.controller.orderId, resultado.pedidoComplementar, resultado.nrPedidoReferencia);
+						exibirPedidoFob(params.controller.orderId, resultado.fob);
 
 						self.orderitemsgridportalcontroller.orderItens.forEach(function (item) {
 
@@ -1412,6 +1514,7 @@ define([
 
 					exibirPercentualAjuste(resultado.percentualAjuste, resultado.itens);
 					exibirPedidoComplementar(params.itemsGridController.orderId, resultado.pedidoComplementar, resultado.nrPedidoReferencia);
+					exibirPedidoFob(params.itemsGridController.orderId, resultado.fob);
 
 					self.orderitemsgridportalcontroller.orderItens.forEach(function (item) {
 
