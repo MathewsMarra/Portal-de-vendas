@@ -87,6 +87,20 @@ define([
 				}
 			},
 
+			// Aplica so' o acrescimo (prazo medio + logistico), nunca o
+			// desconto de prazo medio, e libera o pedido - backing do botao
+			// "Enviar com Acrescimo sem Desconto" (ainda oculto, ver
+			// enviarAcrescimoSemDesconto).
+			'releaseOrderIncrement': {
+				method: 'POST',
+				isArray: false,
+				params: { orderId: '@orderId' },
+				url: '/api/rest-api/mpd/v1/apiOrderIncrementRelease/:orderId',
+				transformResponse: function (data) {
+					return angular.fromJson(data);
+				}
+			},
+
 			// Registra a decisao de NAO aplicar o ajuste de preco avaliado
 			// (botao "Enviar sem Desconto") - nao libera o pedido, so' grava
 			// o historico para a validacao de liberacao em UPC_BODI159COM.p
@@ -1075,6 +1089,18 @@ define([
 								'ng-disabled="modalDescontoController.enviando" ' +
 								'ng-click="modalDescontoController.enviarComAcrescimo()">' +
 								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar com Acréscimo\'}}</button> ' +
+							// Oculto por enquanto a pedido explicito - sera' exibido depois.
+							// Aplica so' o acrescimo (prazo medio + logistico) e recusa o
+							// desconto de prazo medio mesmo quando a faixa geraria um -
+							// util quando ha' acrescimo logistico (pedido abaixo de
+							// R$7.000) junto de uma faixa de desconto de prazo medio, e o
+							// usuario quer so' o acrescimo. "false &&" na frente do ng-if e'
+							// o unico ponto a mudar para exibir o botao.
+							'<button type="button" class="btn btn-enviar-com-acrescimo" ' +
+								'ng-if="false && !modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0" ' +
+								'ng-disabled="modalDescontoController.enviando" ' +
+								'ng-click="modalDescontoController.enviarAcrescimoSemDesconto()">' +
+								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar com Acréscimo sem Desconto\'}}</button> ' +
 							// Nenhum desconto/acrescimo aplicavel (ex.: prazo medio em
 							// faixa de 0%, pedido acima de R$ 7.000 - sem acrescimo
 							// logistico) - sem este botao, o modal ficava sem nenhuma
@@ -1179,6 +1205,33 @@ define([
 
 					self.enviarComDesconto = enviarComAjuste;
 					self.enviarComAcrescimo = enviarComAjuste;
+
+					// Botao ainda oculto (ver ng-if="false && ..." no footer) - aplica
+					// so' o acrescimo (prazo medio + logistico), nunca o desconto de
+					// prazo medio, via apiOrderIncrementRelease/pi-processa-acrescimo-
+					// sem-desconto-pedido. Mesmo piso de R$4.000 das demais acoes.
+					self.enviarAcrescimoSemDesconto = function () {
+						if (!self.pedidoComplementar && valorLiquido < 4000) {
+							avisoModal('O valor líquido do pedido precisa ser ao menos R$ 4.000,00, exceto pedidos complementares');
+							return;
+						}
+
+						confirmarAcao('O pedido será enviado <span style="color:#e67e22;font-weight:bold;">com acréscimo, sem o desconto</span>. Deseja prosseguir?').then(function () {
+							self.enviando = true;
+
+							wsOrder2.releaseOrderIncrement({ orderId: orderId }, {}, function () {
+								self.enviando = false;
+								$modalInstance.close('ajuste-enviado');
+								exibirSucessoLiberacao(params && params.controller);
+							}, function (erro) {
+								self.enviando = false;
+								console.error('[order2] Erro ao enviar pedido com acréscimo sem desconto.', erro);
+								var msg = (erro && erro.data && erro.data.ErrorDescription) ||
+									'Ocorreu um erro ao enviar o pedido. Tente novamente.';
+								alert(msg);
+							});
+						});
+					};
 
 					self.enviarSemDesconto = function () {
 						if (valorLiquido < 4000) {
