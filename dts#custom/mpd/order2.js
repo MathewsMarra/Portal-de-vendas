@@ -994,9 +994,18 @@ define([
 				'<style scoped>' +
 					'.valor-verde { color:#1e5c1e; font-weight:bold; }' +
 					'.valor-laranja { color:#e67e22; font-weight:bold; }' +
+					// Modificador teorico, mas nao aplicavel (ex.: acrescimo
+					// logistico isento por FOB) - riscado (<s> no template,
+					// nao da pra' fazer via CSS puro em texto interpolado) +
+					// cinza + italico, igual ao tratamento ja usado no e-mail
+					// de liberacao (apiEmailPedVenda.p).
+					'.valor-cinza-italico { color:#999999; font-style:italic; font-weight:bold; }' +
 					'.btn-enviar-com-desconto { background-color:#5cb85c; border-color:#4cae4c; color:#fff; }' +
 					'.btn-enviar-sem-desconto { background-color:#337ab7; border-color:#2e6da4; color:#fff; }' +
 					'.btn-enviar-com-acrescimo { background-color:#e67e22; border-color:#d35400; color:#fff; }' +
+					// Mais escuro de proposito - acao distinta de "Enviar com
+					// Acrescimo", nao deve parecer a mesma acao com outro rotulo.
+					'.btn-enviar-acrescimo-sem-desconto { background-color:#a04000; border-color:#7a3000; color:#fff; }' +
 				'</style>' +
 				'<totvs-modal-header>' +
 					'<div>Desconto / Acréscimo do Pedido</div>' +
@@ -1013,9 +1022,19 @@ define([
 						'</thead>' +
 						'<tbody>' +
 							'<tr ng-repeat="cond in modalDescontoController.condicoes">' +
-								'<td>{{cond.descricao}}</td>' +
-								'<td ng-class="cond.percentual > 0 ? \'valor-laranja\' : (cond.percentual < 0 ? \'valor-verde\' : \'\')">{{cond.tipo}}</td>' +
-								'<td ng-class="cond.percentual > 0 ? \'valor-laranja\' : (cond.percentual < 0 ? \'valor-verde\' : \'\')">{{modalDescontoController.formatPercentual(cond.percentual)}}</td>' +
+								'<td ng-class="!cond.aplicavel ? \'valor-cinza-italico\' : \'\'">' +
+									'<span ng-if="cond.aplicavel">{{cond.descricao}}</span>' +
+									'<span ng-if="!cond.aplicavel"><s>{{cond.descricao}}</s>&nbsp;' +
+										'<i class="glyphicon glyphicon-info-sign" tooltip-placement="top" tooltip="{{cond.motivo}}"></i></span>' +
+								'</td>' +
+								'<td ng-class="!cond.aplicavel ? \'valor-cinza-italico\' : (cond.percentual > 0 ? \'valor-laranja\' : (cond.percentual < 0 ? \'valor-verde\' : \'\'))">' +
+									'<span ng-if="cond.aplicavel">{{cond.tipo}}</span>' +
+									'<s ng-if="!cond.aplicavel">{{cond.tipo}}</s>' +
+								'</td>' +
+								'<td ng-class="!cond.aplicavel ? \'valor-cinza-italico\' : (cond.percentual > 0 ? \'valor-laranja\' : (cond.percentual < 0 ? \'valor-verde\' : \'\'))">' +
+									'<span ng-if="cond.aplicavel">{{modalDescontoController.formatPercentual(cond.percentual)}}</span>' +
+									'<s ng-if="!cond.aplicavel">{{modalDescontoController.formatPercentual(cond.percentual)}}</s>' +
+								'</td>' +
 							'</tr>' +
 						'</tbody>' +
 						'<tfoot ng-if="modalDescontoController.condicoes.length">' +
@@ -1106,7 +1125,7 @@ define([
 							// util quando ha' acrescimo logistico (pedido abaixo de
 							// R$7.000) junto de uma faixa de desconto de prazo medio, e o
 							// usuario quer so' o acrescimo.
-							'<button type="button" class="btn btn-enviar-com-acrescimo" ' +
+							'<button type="button" class="btn btn-enviar-acrescimo-sem-desconto" ' +
 								'ng-if="!modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0 && modalDescontoController.temDescontoNoMix" ' +
 								'ng-disabled="modalDescontoController.enviando" ' +
 								'ng-click="modalDescontoController.enviarAcrescimoSemDesconto()">' +
@@ -1139,17 +1158,34 @@ define([
 				controller: ['$modalInstance', function ($modalInstance) {
 					var self = this;
 
-					self.condicoes = (lista || []).map(function (cond) {
-						var percentual = Number(cond.percentual) || 0;
-						return {
-							descricao: cond['descricao'],
-							percentual: percentual,
-							tipo: percentual > 0 ? 'Acréscimo' : (percentual < 0 ? 'Desconto' : '-')
-						};
-					});
+					// getOrderPricingAdjustment agora retorna a lista COMPLETA
+					// (aplicaveis + nao-aplicaveis, ex.: acrescimo logistico
+					// isento por FOB) - filtra percentual zero (nao e' um
+					// modificador de fato) e preserva aplicavel/motivo para a
+					// linha aparecer riscada/acinzentada no template em vez de
+					// ser omitida. lAplicavel vem undefined em respostas de
+					// versoes antigas (cache) - trata como aplicavel por
+					// seguranca (!== false, nao === true).
+					self.condicoes = (lista || [])
+						.filter(function (cond) {
+							return (Number(cond.percentual) || 0) !== 0;
+						})
+						.map(function (cond) {
+							var percentual = Number(cond.percentual) || 0;
+							return {
+								descricao: cond['descricao'],
+								percentual: percentual,
+								tipo: percentual > 0 ? 'Acréscimo' : (percentual < 0 ? 'Desconto' : '-'),
+								aplicavel: cond.lAplicavel !== false,
+								motivo: cond.cMotivoIsencao || ''
+							};
+						});
 
+					// So' soma o que e' de fato aplicavel - uma linha riscada
+					// (FOB/pedido complementar) nao pode inflar o total nem
+					// decidir qual botao de envio aparece.
 					self.totalPercentual = self.condicoes.reduce(function (soma, cond) {
-						return soma + cond.percentual;
+						return cond.aplicavel ? soma + cond.percentual : soma;
 					}, 0);
 
 					self.tipoTotal = self.totalPercentual > 0 ? 'Acréscimo' : (self.totalPercentual < 0 ? 'Desconto' : '-');
@@ -1186,11 +1222,11 @@ define([
 					// desconto compondo o total (senao e' identico a "Enviar
 					// com Acrescimo").
 					self.temDescontoNoMix = self.condicoes.some(function (cond) {
-						return cond.percentual < 0;
+						return cond.aplicavel && cond.percentual < 0;
 					});
 
 					self.totalPercentualSemDesconto = self.condicoes.reduce(function (soma, cond) {
-						return cond.percentual > 0 ? soma + cond.percentual : soma;
+						return (cond.aplicavel && cond.percentual > 0) ? soma + cond.percentual : soma;
 					}, 0);
 
 					if (self.totalPercentualSemDesconto > 0 && itens && itens.length) {
