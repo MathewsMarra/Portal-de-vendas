@@ -1176,8 +1176,13 @@ define([
 								descricao: cond['descricao'],
 								percentual: percentual,
 								tipo: percentual > 0 ? 'Acréscimo' : (percentual < 0 ? 'Desconto' : '-'),
-								aplicavel: cond.lAplicavel !== false,
-								motivo: cond.cMotivoIsencao || ''
+								// Progress nao converte nomes de campo com hifen
+								// para camelCase na serializacao JSON por padrao
+								// (so' via SERIALIZE-NAME explicito, que estes 2
+								// campos nao tem) - a chave JSON preserva o hifen
+								// literal, entao precisa de colchetes aqui.
+								aplicavel: cond['l-aplicavel'] !== false,
+								motivo: cond['c-motivo-isencao'] || ''
 							};
 						});
 
