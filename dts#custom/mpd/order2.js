@@ -89,8 +89,7 @@ define([
 
 			// Aplica so' o acrescimo (prazo medio + logistico), nunca o
 			// desconto de prazo medio, e libera o pedido - backing do botao
-			// "Enviar com Acrescimo sem Desconto" (ainda oculto, ver
-			// enviarAcrescimoSemDesconto).
+			// "Enviar com Acrescimo sem Desconto" (ver enviarAcrescimoSemDesconto).
 			'releaseOrderIncrement': {
 				method: 'POST',
 				isArray: false,
@@ -1034,7 +1033,10 @@ define([
 					'<div ng-if="!modalDescontoController.condicoes.length" class="text-center">Nenhum ajuste de preço aplicável.</div>' +
 					'<table class="table table-bordered" style="margin-top:30px;">' +
 						'<thead>' +
-							'<tr><th></th><th>Atual</th><th>Previsto</th></tr>' +
+							'<tr>' +
+								'<th></th><th>Atual</th><th>Previsto</th>' +
+								'<th ng-if="modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0 && modalDescontoController.temDescontoNoMix">Previsto (sem desconto)</th>' +
+							'</tr>' +
 						'</thead>' +
 						'<tbody>' +
 							'<tr>' +
@@ -1045,12 +1047,22 @@ define([
 									'<i class="glyphicon glyphicon-info-sign" tooltip-placement="top" ' +
 										'tooltip="Os valores previstos podem variar levemente em relação ao valor final, devido a arredondamentos."></i>' +
 								'</td>' +
+								'<td class="valor-laranja" ng-if="modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0 && modalDescontoController.temDescontoNoMix">' +
+									'R$ {{modalDescontoController.formatMoeda(modalDescontoController.valorLiquidoPrevistoSemDesconto)}}&nbsp;' +
+									'<i class="glyphicon glyphicon-info-sign" tooltip-placement="top" ' +
+										'tooltip="Os valores previstos podem variar levemente em relação ao valor final, devido a arredondamentos."></i>' +
+								'</td>' +
 							'</tr>' +
 							'<tr>' +
 								'<td style="font-weight:bold;">Valor Total c/ Impostos</td>' +
 								'<td>R$ {{modalDescontoController.formatMoeda(modalDescontoController.valorTotalAtual)}}</td>' +
 								'<td ng-class="modalDescontoController.totalPercentual > 0 ? \'valor-laranja\' : (modalDescontoController.totalPercentual < 0 ? \'valor-verde\' : \'\')">' +
 									'R$ {{modalDescontoController.formatMoeda(modalDescontoController.valorTotalPrevisto)}}&nbsp;' +
+									'<i class="glyphicon glyphicon-info-sign" tooltip-placement="top" ' +
+										'tooltip="Os valores previstos podem variar levemente em relação ao valor final, devido a arredondamentos."></i>' +
+								'</td>' +
+								'<td class="valor-laranja" ng-if="modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0 && modalDescontoController.temDescontoNoMix">' +
+									'R$ {{modalDescontoController.formatMoeda(modalDescontoController.valorTotalPrevistoSemDesconto)}}&nbsp;' +
 									'<i class="glyphicon glyphicon-info-sign" tooltip-placement="top" ' +
 										'tooltip="Os valores previstos podem variar levemente em relação ao valor final, devido a arredondamentos."></i>' +
 								'</td>' +
@@ -1089,15 +1101,13 @@ define([
 								'ng-disabled="modalDescontoController.enviando" ' +
 								'ng-click="modalDescontoController.enviarComAcrescimo()">' +
 								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar com Acréscimo\'}}</button> ' +
-							// Oculto por enquanto a pedido explicito - sera' exibido depois.
 							// Aplica so' o acrescimo (prazo medio + logistico) e recusa o
 							// desconto de prazo medio mesmo quando a faixa geraria um -
 							// util quando ha' acrescimo logistico (pedido abaixo de
 							// R$7.000) junto de uma faixa de desconto de prazo medio, e o
-							// usuario quer so' o acrescimo. "false &&" na frente do ng-if e'
-							// o unico ponto a mudar para exibir o botao.
+							// usuario quer so' o acrescimo.
 							'<button type="button" class="btn btn-enviar-com-acrescimo" ' +
-								'ng-if="false && !modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0" ' +
+								'ng-if="!modalDescontoController.pedidoComplementar && modalDescontoController.comAcoesEnvio && modalDescontoController.totalPercentual > 0 && modalDescontoController.temDescontoNoMix" ' +
 								'ng-disabled="modalDescontoController.enviando" ' +
 								'ng-click="modalDescontoController.enviarAcrescimoSemDesconto()">' +
 								'{{modalDescontoController.enviando ? \'Enviando...\' : \'Enviar com Acréscimo sem Desconto\'}}</button> ' +
@@ -1167,6 +1177,32 @@ define([
 						? (self.valorLiquidoPrevisto / valorLiquido)
 						: (1 + self.totalPercentual / 100);
 					self.valorTotalPrevisto = valorTotal * razaoAjuste;
+
+					// "Sem desconto": soma so' os componentes de acrescimo
+					// (ignora qualquer desconto de prazo medio no mix) - usado
+					// pelo botao Enviar com Acrescimo sem Desconto e pela
+					// coluna extra da tabela de previsao abaixo. So' faz
+					// sentido mostrar/oferecer essa opcao quando ha' de fato um
+					// desconto compondo o total (senao e' identico a "Enviar
+					// com Acrescimo").
+					self.temDescontoNoMix = self.condicoes.some(function (cond) {
+						return cond.percentual < 0;
+					});
+
+					self.totalPercentualSemDesconto = self.condicoes.reduce(function (soma, cond) {
+						return cond.percentual > 0 ? soma + cond.percentual : soma;
+					}, 0);
+
+					if (self.totalPercentualSemDesconto > 0 && itens && itens.length) {
+						self.valorLiquidoPrevistoSemDesconto = calcularValorLiquidoPrecisoAcrescimo(itens, self.totalPercentualSemDesconto);
+					} else {
+						self.valorLiquidoPrevistoSemDesconto = valorLiquido * (1 + self.totalPercentualSemDesconto / 100);
+					}
+
+					var razaoAjusteSemDesconto = valorLiquido
+						? (self.valorLiquidoPrevistoSemDesconto / valorLiquido)
+						: (1 + self.totalPercentualSemDesconto / 100);
+					self.valorTotalPrevistoSemDesconto = valorTotal * razaoAjusteSemDesconto;
 
 					self.formatPercentual = formatPercentual;
 					self.formatMoeda = formatMoeda;
